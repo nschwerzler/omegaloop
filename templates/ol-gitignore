@@ -1,0 +1,23 @@
+# OmegaLoop .gitignore
+# Ignore temporary files, keep session data and wins
+
+# Worktrees are managed separately (in .git/ol-worktrees/)
+# They should never appear in OmegaLoop/ itself
+
+# Temp files
+*.tmp
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# The orchestrator build output (if using .NET orchestrator)
+.orchestrator/**/bin/
+.orchestrator/**/obj/
+.orchestrator/**/.vs/
+
+# Large log files (keep recent, ignore old)
+# Comment this out if you want full log history
+# */logs/*.log

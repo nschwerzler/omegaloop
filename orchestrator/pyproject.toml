@@ -1,0 +1,23 @@
+[project]
+name = "omegaloop-orchestrator"
+version = "0.1.0"
+description = "Distributed, crash-resilient OmegaLoop engine with Microsoft Agent Framework"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+agent-framework = [
+    "agent-framework",
+    "azure-identity",
+]
+all = [
+    "agent-framework",
+    "azure-identity",
+]
+
+[project.scripts]
+omegaloop = "orchestrator.engine:main_sync"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

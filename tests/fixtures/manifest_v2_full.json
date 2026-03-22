@@ -1,0 +1,55 @@
+{
+  "schema_version": "2.0",
+  "session_id": "20260322-143052-a3f91b-c4d2",
+  "created_at": "2026-03-22T14:30:52Z",
+  "updated_at": "2026-03-22T16:45:12Z",
+  "research_prompt": "Optimize the caching layer in src/cache/",
+  "repo_root": "/tmp/test-repo",
+  "repo_name": "test-repo",
+  "base_branch": "main",
+  "worktree_branch": "ol/20260322-143052-a3f91b-c4d2",
+  "worktree_path": "/tmp/test-repo/.git/ol-worktrees/20260322-143052-a3f91b-c4d2",
+  "status": "looping",
+  "machine_id": "a3f91b",
+  "machines_involved": ["a3f91b"],
+  "experiment_count": 5,
+  "win_count": 2,
+  "max_experiments": 50,
+  "last_checkpoint": "2026-03-22T15:30:00Z",
+  "current_strategy": "structural",
+  "consecutive_no_wins": 1,
+  "evaluation_criteria": {
+    "type": "optimization",
+    "metrics": ["avg_latency_ms"],
+    "win_condition": "Measurably faster without breaking tests",
+    "baseline": {"avg_latency_ms": 45.2}
+  },
+  "experiments": [
+    {
+      "experiment_id": "exp-001-a3f91b",
+      "timestamp": "2026-03-22T14:35:00Z",
+      "machine_id": "a3f91b",
+      "strategy": "low-hanging",
+      "hypothesis": "Replace Dictionary with ConcurrentDictionary",
+      "changes": ["src/cache/CacheStore.cs"],
+      "result": "win",
+      "metrics": {"avg_latency_ms": 43.8},
+      "reasoning": "Eliminated lock contention",
+      "diff_summary": "Swapped Dictionary for ConcurrentDictionary",
+      "error": null,
+      "duration_seconds": 180
+    }
+  ],
+  "wins": [
+    {
+      "win_id": "win-001",
+      "experiment_id": "exp-001-a3f91b",
+      "title": "ConcurrentDictionary fix",
+      "commit_hash": "a1b2c3d",
+      "machine_id": "a3f91b",
+      "artifacts_path": "wins/win-001",
+      "metrics_delta": {"avg_latency_ms": -1.4}
+    }
+  ],
+  "insights": ["Lock contention was the biggest bottleneck"]
+}

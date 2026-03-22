@@ -1,0 +1,92 @@
+[
+  {
+    "prompt": "Test the program. If you find a bug, create a failing test (TDD), then fix the bug.",
+    "expected_type": "converge",
+    "notes": "TDD keywords"
+  },
+  {
+    "prompt": "Keep running until all tests pass with no new bugs found in 3 consecutive passes.",
+    "expected_type": "converge",
+    "notes": "Explicit until-green condition"
+  },
+  {
+    "prompt": "Improve load time of the Dashboard feature. Target: under 200ms.",
+    "expected_type": "converge",
+    "notes": "Target keyword"
+  },
+  {
+    "prompt": "Monitor PR #1234. If you see a new comment or build failure, suggest fixes in pr1234.md.",
+    "expected_type": "monitor",
+    "notes": "Monitor + if you see"
+  },
+  {
+    "prompt": "Watch my team's ADO work items for Project Cosmos updates. Enrich cosmos-status.md daily.",
+    "expected_type": "monitor",
+    "notes": "Watch + enrich + daily"
+  },
+  {
+    "prompt": "Check if any NuGet dependencies have new versions with security fixes once a day.",
+    "expected_type": "monitor",
+    "notes": "Check for + once a day"
+  },
+  {
+    "prompt": "Monitor this pull request, if you see a new comment or build failure, suggest fix.",
+    "expected_type": "monitor",
+    "notes": "Monitor + if you see"
+  },
+  {
+    "prompt": "Improve load time of the DataGrid feature. Measure with: dotnet run --project bench/.",
+    "expected_type": "optimize",
+    "notes": "Improve + measure with"
+  },
+  {
+    "prompt": "Make the API response times faster by profiling and eliminating bottlenecks.",
+    "expected_type": "optimize",
+    "notes": "Faster keyword"
+  },
+  {
+    "prompt": "Reduce the published binary size. Measure with du -sh.",
+    "expected_type": "optimize",
+    "notes": "Reduce size"
+  },
+  {
+    "prompt": "Optimize memory usage in the streaming pipeline.",
+    "expected_type": "optimize",
+    "notes": "Optimize keyword"
+  },
+  {
+    "prompt": "Benchmark the serialization layer and reduce latency.",
+    "expected_type": "optimize",
+    "notes": "Benchmark keyword"
+  },
+  {
+    "prompt": "I need a headless browser that agents can work with that supports SSO websites. Find me a solution.",
+    "expected_type": "research",
+    "notes": "Open-ended research"
+  },
+  {
+    "prompt": "Create a design.md that solves the distributed locking problem in our worker service.",
+    "expected_type": "research",
+    "notes": "Design doc generation"
+  },
+  {
+    "prompt": "Explore 5 different approaches to implement real-time notifications and pick the best one.",
+    "expected_type": "research",
+    "notes": "Explore approaches"
+  },
+  {
+    "prompt": "Find and fix all error handling gaps in the API controllers.",
+    "expected_type": "converge",
+    "notes": "Fix all = convergence target"
+  },
+  {
+    "prompt": "See if you can improve the load time of the login page.",
+    "expected_type": "optimize",
+    "notes": "Improve load time"
+  },
+  {
+    "prompt": "Every weekday morning, check team chat for updates about the release. Enrich release-notes.md.",
+    "expected_type": "monitor",
+    "notes": "Every weekday + enrich"
+  }
+]

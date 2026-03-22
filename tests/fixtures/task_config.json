@@ -1,0 +1,22 @@
+{
+  "id": "a1b2c3d4",
+  "repo": "/tmp/test-repo",
+  "prompt": "Optimize caching",
+  "loop_type": "optimize",
+  "interval_minutes": 10,
+  "cron_expr": "*/10 * * * *",
+  "max": 50,
+  "batch_size": 5,
+  "backend": "claude",
+  "status": "active",
+  "machine_id": "a3f91b",
+  "created_at": "2026-03-22T14:30:52Z",
+  "last_tick": null,
+  "tick_count": 0,
+  "session_id": null,
+  "done_condition": null,
+  "done_streak": 0,
+  "done_streak_target": 3,
+  "target_doc": null,
+  "no_change_streak": 0
+}
