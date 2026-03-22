@@ -4,8 +4,6 @@ Autonomous research loop engine for git repositories.
 
 ## Git
 
-- **Remote**: `https://github.com/nschwerzler/omegaloop.git`
-- **Account**: `nschwerzler` (this is the correct account for this repo)
 - **Branch**: `main` (push directly, no feature branches)
 
 ## Project Structure
