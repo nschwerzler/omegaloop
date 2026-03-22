@@ -87,16 +87,25 @@ def list_tasks() -> list[dict]:
 def parse_interval(s: str) -> int:
     """Parse interval string like '5m', '1h', '30s', '2d' → minutes (min 1)."""
     s = s.strip().lower()
-    if s.endswith("s"):
-        return max(1, int(s[:-1]) // 60 + (1 if int(s[:-1]) % 60 else 0))
-    elif s.endswith("m"):
-        return max(1, int(s[:-1]))
-    elif s.endswith("h"):
-        return int(s[:-1]) * 60
-    elif s.endswith("d"):
-        return int(s[:-1]) * 1440
-    else:
-        return max(1, int(s))  # assume minutes
+    if not s:
+        return 1
+    try:
+        if s.endswith("s"):
+            n = int(s[:-1]) if len(s) > 1 else 0
+            return max(1, n // 60 + (1 if n % 60 else 0))
+        elif s.endswith("m"):
+            n = int(s[:-1]) if len(s) > 1 else 0
+            return max(1, n)
+        elif s.endswith("h"):
+            n = int(s[:-1]) if len(s) > 1 else 0
+            return max(1, n * 60)
+        elif s.endswith("d"):
+            n = int(s[:-1]) if len(s) > 1 else 0
+            return max(1, n * 1440)
+        else:
+            return max(1, int(s))
+    except ValueError:
+        return 1
 
 def interval_to_cron(minutes: int) -> str:
     """Convert interval in minutes to a cron expression."""
@@ -243,7 +252,10 @@ def run_tick(task_id: str):
         print(f"[{task_id}] {task['status']}, skipping tick")
         return
 
-    repo = task["repo"]
+    repo = task.get("repo")
+    if not repo:
+        print(f"[{task_id}] ERROR: task config missing 'repo' field, skipping")
+        return
     session_id = task.get("session_id")
     prompt = task["prompt"]
     max_exps = task.get("max")  # None for monitors

@@ -781,5 +781,10 @@ async def main():
     await orchestrator.run_sessions(sessions, agent_factory)
 
 
-if __name__ == "__main__":
+def main_sync():
+    """Synchronous entry point for pyproject.toml console_scripts."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    main_sync()
