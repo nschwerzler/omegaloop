@@ -1,10 +1,10 @@
 ---
 name: omegaloop
 description: >
-  Autonomous research loop for any git repository. Use this skill whenever the user says
-  /omegaloop, "omegaloop", "research loop", "omega loop", "autonomous experiments",
-  or asks to autonomously improve code, find optimizations, generate design docs, or run
-  iterative experiments on their codebase.
+  Autonomous research loop for any git repository. Trigger on /omegaloop,
+  "research loop", "omega loop", "autonomous experiments", or when the user
+  wants to iteratively improve code, find optimizations, or generate design docs.
+argument-hint: "[research-prompt]"
 allowed-tools:
   - Bash
   - Read
@@ -19,13 +19,7 @@ allowed-tools:
 
 An autonomous research loop for any git repository. Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) but generalized: instead of training neural nets on a GPU, this uses LLM agents as the "compute" — powered by your Copilot subscription, Claude CLI, or Azure AI Foundry tokens.
 
-## Quick Reference
-
-```
-/omegaloop "Make feature X faster"
-/omegaloop "Create a design.md that solves the caching problem in src/cache/"
-/omegaloop "Find and fix all error handling gaps in the API layer"
-```
+**Research prompt**: $ARGUMENTS
 
 ## How It Works
 
