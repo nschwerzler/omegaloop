@@ -461,7 +461,7 @@ def run_tick(task_id: str):
                 proc_input = claude_prompt
             else:  # copilot
                 cli_args = [cli_bin, "-p", claude_prompt, "--yolo",
-                            "--output-format", "text", "--quiet"]
+                            "--output-format", "text"]
                 proc_input = None
 
             with open(stdout_file, "w", encoding="utf-8") as fout, \
