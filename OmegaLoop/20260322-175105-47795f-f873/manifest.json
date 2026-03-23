@@ -2,20 +2,20 @@
   "schema_version": "2.0",
   "session_id": "20260322-175105-47795f-f873",
   "created_at": "2026-03-22T17:51:05Z",
-  "updated_at": "2026-03-22T17:51:05Z",
+  "updated_at": "2026-03-22T18:05:00Z",
   "research_prompt": "Research headless browsers that support SSO websites for AI agents, with output optimized for agent consumption. Evaluate: Playwright, Puppeteer, Selenium, Browserbase, browser-use, steel.dev, Stagehand, AgentQL, and any others. For each, assess SSO/auth support, agent-friendly output format, token efficiency, setup complexity, and automation reliability.",
   "repo_root": "C:/github/omegaloop",
   "repo_name": "omegaloop",
   "base_branch": "main",
   "worktree_branch": "ar/20260322-175105-47795f-f873",
   "worktree_path": "C:/github/omegaloop/.git/ol-worktrees/20260322-175105-47795f-f873",
-  "status": "analyzing",
+  "status": "looping",
   "machine_id": "47795f",
   "machines_involved": ["47795f"],
-  "experiment_count": 0,
-  "win_count": 0,
+  "experiment_count": 3,
+  "win_count": 3,
   "max_experiments": 20,
-  "last_checkpoint": null,
+  "last_checkpoint": "2026-03-22T18:05:00Z",
   "current_strategy": "low-hanging",
   "consecutive_no_wins": 0,
   "evaluation_criteria": {
@@ -24,7 +24,55 @@
     "win_condition": "Each completed evaluation of a browser/tool with actionable findings is a win. Improved synthesis or comparison that adds new insight is a win.",
     "baseline": {}
   },
-  "experiments": [],
-  "wins": [],
-  "insights": []
+  "experiments": [
+    {
+      "experiment_id": "exp-001-47795f",
+      "timestamp": "2026-03-22T17:55:00Z",
+      "machine_id": "47795f",
+      "strategy": "low-hanging",
+      "hypothesis": "Playwright is the strongest candidate due to Microsoft backing, MCP server, and accessibility tree output",
+      "changes": ["wins/win-001/summary.md"],
+      "result": "win",
+      "metrics": {"sso_support": 8, "agent_output_quality": 10, "token_efficiency": 9, "setup_complexity": 8, "reliability": 8},
+      "reasoning": "Best-in-class accessibility tree output, official MCP server, storageState for auth persistence",
+      "diff_summary": "Complete Playwright evaluation covering SSO, output format, MCP integration",
+      "duration_seconds": 204
+    },
+    {
+      "experiment_id": "exp-002-47795f",
+      "timestamp": "2026-03-22T17:58:00Z",
+      "machine_id": "47795f",
+      "strategy": "low-hanging",
+      "hypothesis": "Puppeteer's direct CDP access gives advantages for advanced agent use cases",
+      "changes": ["wins/win-002/summary.md"],
+      "result": "win",
+      "metrics": {"sso_support": 6, "agent_output_quality": 7, "token_efficiency": 7, "setup_complexity": 6, "reliability": 7},
+      "reasoning": "Strong CDP access, Google MCP ecosystem, but Chrome-only and no auto-wait",
+      "diff_summary": "Complete Puppeteer evaluation with CDP deep-dive and Playwright comparison",
+      "duration_seconds": 158
+    },
+    {
+      "experiment_id": "exp-003-47795f",
+      "timestamp": "2026-03-22T18:01:00Z",
+      "machine_id": "47795f",
+      "strategy": "low-hanging",
+      "hypothesis": "Selenium 4+ BiDi improvements may make it viable for agent use",
+      "changes": ["wins/win-003/summary.md"],
+      "result": "win",
+      "metrics": {"sso_support": 4, "agent_output_quality": 3, "token_efficiency": 3, "setup_complexity": 4, "reliability": 5},
+      "reasoning": "No accessibility tree API is disqualifying. BiDi helps diagnostics but doesn't close the gap",
+      "diff_summary": "Complete Selenium evaluation, concluded NOT recommended for new agent work",
+      "duration_seconds": 140
+    }
+  ],
+  "wins": [
+    {"win_id": "win-001", "experiment_id": "exp-001-47795f", "title": "Playwright: Gold standard for agent+SSO", "commit_hash": "", "machine_id": "47795f", "artifacts_path": "wins/win-001"},
+    {"win_id": "win-002", "experiment_id": "exp-002-47795f", "title": "Puppeteer: Strong CDP, niche use", "commit_hash": "", "machine_id": "47795f", "artifacts_path": "wins/win-002"},
+    {"win_id": "win-003", "experiment_id": "exp-003-47795f", "title": "Selenium: Not recommended for agents", "commit_hash": "", "machine_id": "47795f", "artifacts_path": "wins/win-003"}
+  ],
+  "insights": [
+    "Accessibility tree is THE differentiator for agent-friendly browser tools. Playwright and Puppeteer have it; Selenium does not.",
+    "SSO auth persistence follows the same pattern everywhere: authenticate once, serialize cookies/tokens, reuse. The quality of the serialization API varies.",
+    "MFA push notifications (Microsoft Authenticator) cannot be automated by ANY tool. TOTP is the only automatable MFA method."
+  ]
 }
