@@ -1,0 +1,30 @@
+{
+  "schema_version": "2.0",
+  "session_id": "20260322-175105-47795f-f873",
+  "created_at": "2026-03-22T17:51:05Z",
+  "updated_at": "2026-03-22T17:51:05Z",
+  "research_prompt": "Research headless browsers that support SSO websites for AI agents, with output optimized for agent consumption. Evaluate: Playwright, Puppeteer, Selenium, Browserbase, browser-use, steel.dev, Stagehand, AgentQL, and any others. For each, assess SSO/auth support, agent-friendly output format, token efficiency, setup complexity, and automation reliability.",
+  "repo_root": "C:/github/omegaloop",
+  "repo_name": "omegaloop",
+  "base_branch": "main",
+  "worktree_branch": "ar/20260322-175105-47795f-f873",
+  "worktree_path": "C:/github/omegaloop/.git/ol-worktrees/20260322-175105-47795f-f873",
+  "status": "analyzing",
+  "machine_id": "47795f",
+  "machines_involved": ["47795f"],
+  "experiment_count": 0,
+  "win_count": 0,
+  "max_experiments": 20,
+  "last_checkpoint": null,
+  "current_strategy": "low-hanging",
+  "consecutive_no_wins": 0,
+  "evaluation_criteria": {
+    "type": "research",
+    "metrics": ["sso_support", "agent_output_quality", "token_efficiency", "setup_complexity", "reliability"],
+    "win_condition": "Each completed evaluation of a browser/tool with actionable findings is a win. Improved synthesis or comparison that adds new insight is a win.",
+    "baseline": {}
+  },
+  "experiments": [],
+  "wins": [],
+  "insights": []
+}
