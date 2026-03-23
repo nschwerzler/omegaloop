@@ -436,6 +436,11 @@ def run_tick(task_id: str):
 
     # --- Fire the agent ---
     write_heartbeat(task_id, "running", f"Starting {backend} agent")
+
+    # Write prompt to temp file for reliable delivery (avoids arg length limits and newline issues)
+    prompt_file = OL_LOGS / f"{task_id}.prompt.md"
+    prompt_file.write_text(claude_prompt, encoding="utf-8")
+
     t0 = time.time()
     try:
         if backend == "claude":
@@ -443,13 +448,14 @@ def run_tick(task_id: str):
             claude_bin = shutil.which("claude")
             if not claude_bin:
                 raise FileNotFoundError("claude CLI not found on PATH")
+            # Pass prompt via stdin for reliability (no arg length limits, newlines preserved)
             result = subprocess.run(
                 [
                     claude_bin, "-p",
                     "--dangerously-skip-permissions",
                     "--output-format", "text",
-                    claude_prompt,
                 ],
+                input=claude_prompt,
                 cwd=repo,
                 capture_output=True, text=True,
                 timeout=1800,  # 30 min max per tick

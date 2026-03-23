@@ -669,11 +669,14 @@ class ClaudeCliBackend:
         proc = await asyncio.create_subprocess_exec(
             claude_bin, "-p",
             "--output-format", "text",
-            prompt,
             cwd=context["worktree_path"],
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        # Write prompt via stdin for reliability (no arg length limits)
+        proc.stdin.write(prompt.encode())
+        proc.stdin.close()
         try:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=self.TIMEOUT)
         except asyncio.TimeoutError:
