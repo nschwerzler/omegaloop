@@ -667,8 +667,9 @@ class ClaudeCliBackend:
         )
         claude_bin = shutil.which("claude") or "claude"
         proc = await asyncio.create_subprocess_exec(
-            claude_bin, "-p", prompt,
+            claude_bin, "-p",
             "--output-format", "text",
+            prompt,
             cwd=context["worktree_path"],
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

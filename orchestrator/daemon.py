@@ -445,9 +445,10 @@ def run_tick(task_id: str):
                 raise FileNotFoundError("claude CLI not found on PATH")
             result = subprocess.run(
                 [
-                    claude_bin, "-p", claude_prompt,
+                    claude_bin, "-p",
                     "--dangerously-skip-permissions",
                     "--output-format", "text",
+                    claude_prompt,
                 ],
                 cwd=repo,
                 capture_output=True, text=True,
