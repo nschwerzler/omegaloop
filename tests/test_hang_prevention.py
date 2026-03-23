@@ -184,3 +184,66 @@ class TestRunTickLock:
 
         captured = capsys.readouterr()
         assert "already running" in captured.out
+
+    def test_run_tick_releases_lock_on_early_termination(self, tmp_path, capsys):
+        """run_tick must release lock when session is already completed."""
+        tasks_dir = tmp_path / "tasks"
+        tasks_dir.mkdir()
+        logs_dir = tmp_path / "logs"
+        logs_dir.mkdir()
+        locks_dir = tmp_path / "locks"
+        locks_dir.mkdir()
+        hb_dir = tmp_path / "hb"
+        hb_dir.mkdir()
+
+        # Create a repo dir with a completed manifest
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        ol_dir = repo / "OmegaLoop" / "test-session"
+        ol_dir.mkdir(parents=True)
+        (ol_dir / "manifest.json").write_text(json.dumps({
+            "status": "completed", "win_count": 5, "experiment_count": 10
+        }))
+
+        task = {
+            "id": "earlyterm1", "status": "active", "prompt": "test",
+            "repo": str(repo), "session_id": "test-session", "loop_type": "research"
+        }
+        (tasks_dir / "earlyterm1.json").write_text(json.dumps(task))
+
+        from orchestrator.daemon import run_tick
+        with patch("orchestrator.daemon.OL_TASKS", tasks_dir), \
+             patch("orchestrator.daemon.OL_LOGS", logs_dir), \
+             patch("orchestrator.daemon.OL_LOCKS", locks_dir), \
+             patch("orchestrator.daemon.OL_HEARTBEATS", hb_dir):
+            run_tick("earlyterm1")
+
+        # Lock must be released
+        assert not (locks_dir / "earlyterm1.lock").exists()
+
+    def test_run_tick_handles_missing_prompt(self, tmp_path, capsys):
+        """run_tick should handle missing 'prompt' field gracefully."""
+        tasks_dir = tmp_path / "tasks"
+        tasks_dir.mkdir()
+        logs_dir = tmp_path / "logs"
+        logs_dir.mkdir()
+        locks_dir = tmp_path / "locks"
+        locks_dir.mkdir()
+
+        task = {"id": "noprompt1", "status": "active", "repo": str(tmp_path)}
+        (tasks_dir / "noprompt1.json").write_text(json.dumps(task))
+
+        from orchestrator.daemon import run_tick
+        with patch("orchestrator.daemon.OL_TASKS", tasks_dir), \
+             patch("orchestrator.daemon.OL_LOGS", logs_dir), \
+             patch("orchestrator.daemon.OL_LOCKS", locks_dir):
+            try:
+                run_tick("noprompt1")
+            except KeyError:
+                import pytest
+                pytest.fail("run_tick raised KeyError on task missing 'prompt'")
+
+        # Lock must be released
+        assert not (locks_dir / "noprompt1.lock").exists()
+        captured = capsys.readouterr()
+        assert "missing 'prompt'" in captured.out

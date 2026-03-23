@@ -301,6 +301,10 @@ and if there's new data, enriches the target document.
 
 **Tick behavior**: Hypothesize → implement → evaluate → keep/discard.
 
+**Note**: For pure research loops (web research, design docs, analysis), worktrees are
+unnecessary overhead. Write findings directly to `OmegaLoop/{session}/wins/` on main.
+Worktrees are for loops that modify actual code in the repo.
+
 ### Type: `optimize`
 **Pattern**: Measurable metric. Iterate until diminishing returns or target hit.
 
@@ -328,3 +332,6 @@ the metric before and after.
 8. **Monitors never auto-stop** — only manual pause/remove
 9. **Converge loops verify done-ness** — meet the condition N times in a row before stopping
 10. **Each tick is self-contained** — get context from manifest, do work, checkpoint, exit cleanly
+11. **Never hang** — all subprocess calls need timeouts. If an experiment takes >15 min, kill it and log as error
+12. **Use `python` not `python3` on Windows** — `python3` is not available. The daemon auto-detects via `sys.executable`
+13. **Research loops skip worktrees** — pure research/analysis writes directly to OmegaLoop/ on main. Only code-modifying loops use worktrees

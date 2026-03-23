@@ -330,7 +330,11 @@ def run_tick(task_id: str):
         release_tick_lock(task_id)
         return
     session_id = task.get("session_id")
-    prompt = task["prompt"]
+    prompt = task.get("prompt")
+    if not prompt:
+        print(f"[{task_id}] ERROR: task config missing 'prompt' field, skipping")
+        release_tick_lock(task_id)
+        return
     max_exps = task.get("max")  # None for monitors
     batch_size = task.get("batch_size", 5)
     backend = task.get("backend", "claude")
@@ -361,6 +365,7 @@ def run_tick(task_id: str):
             task["status"] = "completed"
             save_task(task)
             scheduler_remove(task_id)
+            release_tick_lock(task_id)
             return
 
         # Max experiments check (not for monitors)
@@ -371,6 +376,7 @@ def run_tick(task_id: str):
             task["status"] = "completed"
             save_task(task)
             scheduler_remove(task_id)
+            release_tick_lock(task_id)
             return
 
         # Converge: check done streak
@@ -384,6 +390,7 @@ def run_tick(task_id: str):
                 task["status"] = "completed"
                 save_task(task)
                 scheduler_remove(task_id)
+                release_tick_lock(task_id)
                 return
 
     # --- Build the type-specific prompt ---
