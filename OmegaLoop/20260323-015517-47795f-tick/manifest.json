@@ -1,0 +1,1 @@
+{"session_id": "20260323-015517-47795f-tick", "status": "looping", "research_prompt": "Research the top 3 Python testing frameworks (pytest, unittest, nose2). For each, list 3 strengths and 3 weaknesses. Write a comparison table in markdown. Save results to OmegaLoop/SESSION/wins/win-00", "experiment_count": 1, "win_count": 1}
