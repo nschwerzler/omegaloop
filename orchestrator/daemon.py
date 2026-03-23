@@ -459,10 +459,21 @@ def run_tick(task_id: str):
                 cli_args = [cli_bin, "-p", "--dangerously-skip-permissions",
                             "--output-format", "text"]
                 proc_input = claude_prompt
+                use_shell = False
             else:  # copilot
-                cli_args = [cli_bin, "-p", claude_prompt, "--yolo",
-                            "--output-format", "text"]
+                # Copilot CLI: -p takes prompt as arg value; use shell=True
+                # to avoid WinGet exe shim issues with --no-warnings injection
+                # Pipe prompt file via stdin: type file | copilot -p -
+                # But copilot doesn't support stdin, so pass prompt inline via shell
+                import shlex
+                safe_prompt = claude_prompt.replace('"', '\\"').replace('\n', ' ')
+                cli_args = f'copilot -p "{safe_prompt}" --yolo --output-format text'
                 proc_input = None
+                use_shell = True
+
+            # Set UTF-8 encoding for subprocess (copilot outputs emoji/unicode)
+            env = dict(os.environ)
+            env["PYTHONUTF8"] = "1"
 
             with open(stdout_file, "w", encoding="utf-8") as fout, \
                  open(stderr_file, "w", encoding="utf-8") as ferr:
@@ -471,7 +482,9 @@ def run_tick(task_id: str):
                     input=proc_input,
                     cwd=repo,
                     stdout=fout, stderr=ferr,
-                    text=True,
+                    text=True, encoding="utf-8", errors="replace",
+                    shell=use_shell,
+                    env=env,
                     timeout=1800,  # 30 min max per tick
                 )
             # Read back output from files
