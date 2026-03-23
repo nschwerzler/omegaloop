@@ -34,6 +34,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+# Force UTF-8 stdout/stderr on Windows to handle emoji from copilot CLI
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -870,7 +875,7 @@ def cmd_logs(task_id: str):
     log_file = OL_LOGS / f"{task_id}.log"
     if log_file.exists():
         # Tail last 100 lines
-        lines = log_file.read_text().split("\n")
+        lines = log_file.read_text(encoding="utf-8", errors="replace").split("\n")
         for line in lines[-100:]:
             print(line)
     else:
