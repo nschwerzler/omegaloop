@@ -450,19 +450,25 @@ def run_tick(task_id: str):
             if not cli_bin:
                 raise FileNotFoundError(f"{cli_name} CLI not found on PATH")
 
-            cli_args = [cli_bin, "-p"]
-            if backend == "claude":
-                cli_args += ["--dangerously-skip-permissions"]
-            cli_args += ["--output-format", "text"]
-
-            # Pass prompt via stdin, capture output to files for reliability
+            # Write prompt to file for copilot (uses -p <text> not stdin)
+            # Claude uses stdin; copilot uses -p <text> arg
             stdout_file = OL_LOGS / f"{task_id}.stdout.txt"
             stderr_file = OL_LOGS / f"{task_id}.stderr.txt"
+
+            if backend == "claude":
+                cli_args = [cli_bin, "-p", "--dangerously-skip-permissions",
+                            "--output-format", "text"]
+                proc_input = claude_prompt
+            else:  # copilot
+                cli_args = [cli_bin, "-p", claude_prompt, "--yolo",
+                            "--output-format", "text", "--quiet"]
+                proc_input = None
+
             with open(stdout_file, "w", encoding="utf-8") as fout, \
                  open(stderr_file, "w", encoding="utf-8") as ferr:
                 result = subprocess.run(
                     cli_args,
-                    input=claude_prompt,
+                    input=proc_input,
                     cwd=repo,
                     stdout=fout, stderr=ferr,
                     text=True,
