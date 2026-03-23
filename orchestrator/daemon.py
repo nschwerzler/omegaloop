@@ -448,18 +448,26 @@ def run_tick(task_id: str):
             claude_bin = shutil.which("claude")
             if not claude_bin:
                 raise FileNotFoundError("claude CLI not found on PATH")
-            # Pass prompt via stdin for reliability (no arg length limits, newlines preserved)
-            result = subprocess.run(
-                [
-                    claude_bin, "-p",
-                    "--dangerously-skip-permissions",
-                    "--output-format", "text",
-                ],
-                input=claude_prompt,
-                cwd=repo,
-                capture_output=True, text=True,
-                timeout=1800,  # 30 min max per tick
-            )
+            # Pass prompt via stdin, capture output to file for reliability
+            stdout_file = OL_LOGS / f"{task_id}.stdout.txt"
+            stderr_file = OL_LOGS / f"{task_id}.stderr.txt"
+            with open(stdout_file, "w", encoding="utf-8") as fout, \
+                 open(stderr_file, "w", encoding="utf-8") as ferr:
+                result = subprocess.run(
+                    [
+                        claude_bin, "-p",
+                        "--dangerously-skip-permissions",
+                        "--output-format", "text",
+                    ],
+                    input=claude_prompt,
+                    cwd=repo,
+                    stdout=fout, stderr=ferr,
+                    text=True,
+                    timeout=1800,  # 30 min max per tick
+                )
+            # Read back output from files (safer than in-memory streams)
+            result.stdout = stdout_file.read_text(encoding="utf-8") if stdout_file.exists() else ""
+            result.stderr = stderr_file.read_text(encoding="utf-8") if stderr_file.exists() else ""
         else:
             result = subprocess.run(
                 [
