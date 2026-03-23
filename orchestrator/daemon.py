@@ -514,9 +514,9 @@ def run_tick(task_id: str):
             task["last_error"] = f"exit={exit_code}: {stderr_text[:200]}"
             task["error_count"] = task.get("error_count", 0) + 1
 
-        # Write to log
+        # Write to log (UTF-8 for copilot emoji output)
         log_file = OL_LOGS / f"{task_id}.log"
-        with open(log_file, "a") as f:
+        with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"\n--- Tick {datetime.now().isoformat()} (exit={exit_code}, {elapsed:.0f}s, {stdout_len} chars) ---\n")
             f.write(result.stdout[-5000:] if result.stdout else "(no output)")
             if stderr_text:
