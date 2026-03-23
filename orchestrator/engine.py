@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import platform
+import shutil
 import signal
 import subprocess
 import sys
@@ -664,8 +665,9 @@ class ClaudeCliBackend:
             f"Make ONE code change, test it, evaluate it.\n"
             f"Respond with JSON: {{hypothesis, changes, result, metrics, reasoning, diff_summary}}"
         )
+        claude_bin = shutil.which("claude") or "claude"
         proc = await asyncio.create_subprocess_exec(
-            "claude", "-p", prompt,
+            claude_bin, "-p", prompt,
             "--output-format", "text",
             cwd=context["worktree_path"],
             stdout=asyncio.subprocess.PIPE,

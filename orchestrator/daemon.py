@@ -406,23 +406,43 @@ def run_tick(task_id: str):
     type_instructions = build_type_instructions(task, manifest, context_block)
 
     if session_id and manifest:
+        manifest_path_str = str(Path(repo) / "OmegaLoop" / session_id / "manifest.json")
         claude_prompt = (
-            f"You are running OmegaLoop. Read the skill at {skill_md} first.\n\n"
-            f"RESUME session {session_id} in repo {repo}.\n"
-            f"Manifest at: {Path(repo) / 'OmegaLoop' / session_id / 'manifest.json'}\n\n"
+            f"You are an OmegaLoop agent. Your ONLY job is to run experiments.\n"
+            f"Do NOT look at git status. Do NOT comment on uncommitted changes.\n"
+            f"Do NOT ask questions. Just execute.\n\n"
+            f"RESUME session: {session_id}\n"
+            f"Repo: {repo}\n"
+            f"Manifest: {manifest_path_str}\n\n"
             f"{context_block}\n"
             f"{type_instructions}\n\n"
-            f"Follow the skill protocol exactly. Do NOT ask for permission. "
-            f"Do NOT stop to explain. Do the work, checkpoint, exit."
+            f"Steps:\n"
+            f"1. Read the manifest at {manifest_path_str}\n"
+            f"2. Run {batch_size} experiment(s) following the type instructions above\n"
+            f"3. Write results to OmegaLoop/{session_id}/wins/\n"
+            f"4. Update the manifest with experiment results\n"
+            f"5. Commit changes: git add OmegaLoop/ && git commit -m 'OL: tick'\n"
+            f"6. Exit immediately\n"
         )
     else:
         claude_prompt = (
-            f"You are running OmegaLoop. Read the skill at {skill_md} first.\n\n"
-            f"Initialize a NEW session in repo {repo}.\n"
+            f"You are an OmegaLoop agent. Your ONLY job is to run experiments.\n"
+            f"Do NOT look at git status. Do NOT comment on uncommitted changes.\n"
+            f"Do NOT ask questions. Just execute.\n\n"
+            f"TASK: Initialize a NEW OmegaLoop session and run {batch_size} experiment(s).\n"
+            f"RESEARCH PROMPT: {prompt}\n"
+            f"Repo: {repo}\n"
             f"Loop type: {loop_type}\n\n"
             f"{type_instructions}\n\n"
-            f"Follow the skill protocol exactly. Do NOT ask for permission. "
-            f"Do the work, checkpoint, exit."
+            f"Steps:\n"
+            f"1. Create OmegaLoop/{{session-id}}/ with manifest.json and research-prompt.md\n"
+            f"2. Session ID format: YYYYMMDD-HHMMSS-{{6char-machine-hash}}-{{4char-prompt-hash}}\n"
+            f"3. Run {batch_size} experiment(s) on the research prompt\n"
+            f"4. Write findings to OmegaLoop/{{session-id}}/wins/\n"
+            f"5. Update manifest with results\n"
+            f"6. Commit: git add OmegaLoop/ && git commit -m 'OL: init + tick'\n"
+            f"7. Exit immediately\n"
+            f"\nIGNORE any existing OmegaLoop sessions. Create a fresh one.\n"
         )
 
     # --- Fire the agent ---
@@ -430,9 +450,13 @@ def run_tick(task_id: str):
     t0 = time.time()
     try:
         if backend == "claude":
+            # Resolve full path to claude CLI (Windows needs .cmd extension resolved)
+            claude_bin = shutil.which("claude")
+            if not claude_bin:
+                raise FileNotFoundError("claude CLI not found on PATH")
             result = subprocess.run(
                 [
-                    "claude", "-p", claude_prompt,
+                    claude_bin, "-p", claude_prompt,
                     "--dangerously-skip-permissions",
                     "--output-format", "text",
                 ],
@@ -455,13 +479,22 @@ def run_tick(task_id: str):
             )
 
         elapsed = time.time() - t0
-        print(f"  Completed in {elapsed:.0f}s (exit={result.returncode})")
+        exit_code = result.returncode
+        stdout_len = len(result.stdout) if result.stdout else 0
+        stderr_text = (result.stderr or "").strip()
+        print(f"  Completed in {elapsed:.0f}s (exit={exit_code}, stdout={stdout_len} chars)")
+        if exit_code != 0:
+            print(f"  STDERR: {stderr_text[:500]}")
+            task["last_error"] = f"exit={exit_code}: {stderr_text[:200]}"
+            task["error_count"] = task.get("error_count", 0) + 1
 
         # Write to log
         log_file = OL_LOGS / f"{task_id}.log"
         with open(log_file, "a") as f:
-            f.write(f"\n--- Tick {datetime.now().isoformat()} ({elapsed:.0f}s) ---\n")
-            f.write(result.stdout[-3000:] if result.stdout else "(no output)")
+            f.write(f"\n--- Tick {datetime.now().isoformat()} (exit={exit_code}, {elapsed:.0f}s, {stdout_len} chars) ---\n")
+            f.write(result.stdout[-5000:] if result.stdout else "(no output)")
+            if stderr_text:
+                f.write(f"\n--- STDERR ---\n{stderr_text[-2000:]}")
             f.write("\n")
 
         # --- Post-tick: check results for type-specific logic ---
@@ -474,21 +507,26 @@ def run_tick(task_id: str):
                 post_tick_check(task, updated_manifest, result.stdout or "")
 
     except subprocess.TimeoutExpired:
+        result = None
         elapsed = time.time() - t0
         print(f"  TIMEOUT after {elapsed:.0f}s")
         task["last_error"] = f"Timeout after {elapsed:.0f}s"
         task["error_count"] = task.get("error_count", 0) + 1
     except FileNotFoundError as e:
-        print(f"  ERROR: {e} — is claude CLI installed?")
+        result = None
+        print(f"  ERROR: {e}")
         task["last_error"] = str(e)
         task["error_count"] = task.get("error_count", 0) + 1
 
-    # Link to session if first tick
-    if not session_id:
+    # Link to session if first tick AND agent succeeded
+    if not session_id and result and result.returncode == 0:
         ol_dir = Path(repo) / "OmegaLoop"
         if ol_dir.exists():
+            # Only consider sessions created after this tick started
             candidates = sorted(
-                [d for d in ol_dir.iterdir() if d.is_dir() and MACHINE_ID in d.name],
+                [d for d in ol_dir.iterdir()
+                 if d.is_dir() and MACHINE_ID in d.name
+                 and d.stat().st_mtime >= t0],
                 key=lambda d: d.stat().st_mtime,
                 reverse=True,
             )
@@ -637,7 +675,7 @@ def cmd_install():
 
     # Check claude CLI
     claude_ok = shutil.which("claude") is not None
-    print(f"Claude CLI:  {'✓' if claude_ok else '✗ (install claude code)'}")
+    print(f"Claude CLI:  {'OK' if claude_ok else 'NOT FOUND (install claude code)'}")
     print("\nReady. Use 'omegaloop add' to create research loops.")
 
 def cmd_add(args):
@@ -699,7 +737,7 @@ def cmd_add(args):
     scheduler_install_cron(task, cron_expr)
 
     terminates = loop_type != "monitor"
-    print(f"\n✓ Task {task_id} created")
+    print(f"\n[OK] Task {task_id} created")
     print(f"  Repo:     {repo}")
     print(f"  Prompt:   {prompt[:70]}")
     print(f"  Type:     {loop_type}")
@@ -774,16 +812,16 @@ def cmd_list():
         return
 
     print(f"\n{'ID':>10}  {'Type':>8}  {'Status':>9}  {'Ticks':>5}  {'Schedule':>14}  {'Backend':>8}  {'Repo':<20}  Prompt")
-    print("─" * 120)
+    print("-" * 120)
     for t in tasks:
         status = t.get("status", "?")
-        color = {"active": "\033[32m", "paused": "\033[33m", "completed": "\033[34m"}.get(status, "\033[0m")
+        status_tag = {"active": "+", "paused": "~", "completed": "."}.get(status, "?")
         repo = Path(t.get("repo", "?")).name
         prompt = t.get("prompt", "?")[:35]
         ltype = t.get("loop_type", "?")
         cron = t.get("cron_expr", "?")
         sched = cron if len(cron) < 15 else cron[:12] + ".."
-        print(f"{t['id']:>10}  {ltype:>8}  {color}{status:>9}\033[0m  {t.get('tick_count',0):>5}  "
+        print(f"{t['id']:>10}  {ltype:>8}  {status_tag}{status:>9}  {t.get('tick_count',0):>5}  "
               f"{sched:>14}  {t.get('backend','?'):>8}  "
               f"{repo:<20}  {prompt}")
 
@@ -817,7 +855,7 @@ def cmd_pause(task_id: str):
     task["status"] = "paused"
     save_task(task)
     scheduler_remove(task_id)
-    print(f"✓ {task_id} paused. OS scheduler entry removed.")
+    print(f"[OK] {task_id} paused. OS scheduler entry removed.")
     print(f"  Use 'omegaloop resume {task_id}' to restart.")
 
 def cmd_resume(task_id: Optional[str], resume_all: bool = False):
@@ -831,7 +869,7 @@ def cmd_resume(task_id: Optional[str], resume_all: bool = False):
             save_task(t)
             cron_expr = t.get("cron_expr", interval_to_cron(t.get("interval_minutes", 10)))
             scheduler_install_cron(t, cron_expr)
-            print(f"✓ {t['id']} [{t.get('loop_type','?')}] resumed ({Path(t['repo']).name}: {t['prompt'][:35]})")
+            print(f"[OK] {t['id']} [{t.get('loop_type','?')}] resumed ({Path(t['repo']).name}: {t['prompt'][:35]})")
         print(f"\n{len(tasks)} task(s) resumed.")
     elif task_id:
         task = load_task(task_id)
@@ -839,7 +877,7 @@ def cmd_resume(task_id: Optional[str], resume_all: bool = False):
         save_task(task)
         cron_expr = task.get("cron_expr", interval_to_cron(task.get("interval_minutes", 10)))
         scheduler_install_cron(task, cron_expr)
-        print(f"✓ {task_id} resumed.")
+        print(f"[OK] {task_id} resumed.")
     else:
         print("Specify a task ID or use --all")
 
@@ -848,7 +886,7 @@ def cmd_remove(task_id: str):
     p = task_path(task_id)
     if p.exists():
         p.unlink()
-    print(f"✓ {task_id} removed. OS scheduler entry and task config deleted.")
+    print(f"[OK] {task_id} removed. OS scheduler entry and task config deleted.")
     print(f"  OmegaLoop/ data in the repo is preserved.")
 
 def cmd_status(task_id: Optional[str] = None):
