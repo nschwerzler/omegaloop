@@ -407,42 +407,31 @@ def run_tick(task_id: str):
 
     if session_id and manifest:
         manifest_path_str = str(Path(repo) / "OmegaLoop" / session_id / "manifest.json")
+        exp_num = manifest.get("experiment_count", 0) + 1
+        win_num = manifest.get("win_count", 0) + 1
         claude_prompt = (
-            f"You are an OmegaLoop agent. Your ONLY job is to run experiments.\n"
-            f"Do NOT look at git status. Do NOT comment on uncommitted changes.\n"
-            f"Do NOT ask questions. Just execute.\n\n"
-            f"RESUME session: {session_id}\n"
-            f"Repo: {repo}\n"
-            f"Manifest: {manifest_path_str}\n\n"
+            f"Do the following research task. Do NOT ask questions, just execute.\n\n"
+            f"RESEARCH PROMPT: {prompt}\n"
             f"{context_block}\n"
             f"{type_instructions}\n\n"
-            f"Steps:\n"
-            f"1. Read the manifest at {manifest_path_str}\n"
-            f"2. Run {batch_size} experiment(s) following the type instructions above\n"
-            f"3. Write results to OmegaLoop/{session_id}/wins/\n"
-            f"4. Update the manifest with experiment results\n"
-            f"5. Commit changes: git add OmegaLoop/ && git commit -m 'OL: tick'\n"
-            f"6. Exit immediately\n"
+            f"Read the manifest at {manifest_path_str} for session state.\n"
+            f"Run {batch_size} experiment(s). Write findings to OmegaLoop/{session_id}/wins/win-{win_num:03d}/summary.md\n"
+            f"Update manifest: increment experiment_count and win_count.\n"
+            f"Commit: git add OmegaLoop/{session_id} && git commit -m 'OL: exp {exp_num}'\n"
         )
     else:
+        session_ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        new_session_id = f"{session_ts}-{MACHINE_ID}-tick"
+        new_session_dir = f"OmegaLoop/{new_session_id}"
         claude_prompt = (
-            f"You are an OmegaLoop agent. Your ONLY job is to run experiments.\n"
-            f"Do NOT look at git status. Do NOT comment on uncommitted changes.\n"
-            f"Do NOT ask questions. Just execute.\n\n"
-            f"TASK: Initialize a NEW OmegaLoop session and run {batch_size} experiment(s).\n"
-            f"RESEARCH PROMPT: {prompt}\n"
-            f"Repo: {repo}\n"
-            f"Loop type: {loop_type}\n\n"
+            f"Do the following research task. Do NOT ask questions, just execute.\n\n"
+            f"RESEARCH PROMPT: {prompt}\n\n"
             f"{type_instructions}\n\n"
-            f"Steps:\n"
-            f"1. Create OmegaLoop/{{session-id}}/ with manifest.json and research-prompt.md\n"
-            f"2. Session ID format: YYYYMMDD-HHMMSS-{{6char-machine-hash}}-{{4char-prompt-hash}}\n"
-            f"3. Run {batch_size} experiment(s) on the research prompt\n"
-            f"4. Write findings to OmegaLoop/{{session-id}}/wins/\n"
-            f"5. Update manifest with results\n"
-            f"6. Commit: git add OmegaLoop/ && git commit -m 'OL: init + tick'\n"
-            f"7. Exit immediately\n"
-            f"\nIGNORE any existing OmegaLoop sessions. Create a fresh one.\n"
+            f"Write your findings as markdown files in {new_session_dir}/wins/win-001/summary.md\n"
+            f"Also create {new_session_dir}/manifest.json with:\n"
+            f'{{"session_id": "{new_session_id}", "status": "looping", '
+            f'"research_prompt": "{prompt[:200]}", "experiment_count": 1, "win_count": 1}}\n\n'
+            f"Then commit: git add {new_session_dir} && git commit -m 'OL: {new_session_id} tick'\n"
         )
 
     # --- Fire the agent ---
