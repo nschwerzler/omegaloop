@@ -42,6 +42,10 @@ OL_HOME = Path(os.environ.get("OL_HOME", Path.home() / ".omegaloop"))
 OL_TASKS = OL_HOME / "tasks"
 OL_LOGS = OL_HOME / "logs"
 OL_BIN = OL_HOME / "bin"
+OL_LOCKS = OL_HOME / "locks"
+OL_HEARTBEATS = OL_HOME / "heartbeats"
+
+TICK_TIMEOUT_SECONDS = 2400  # 40 min — stale lock threshold (tick timeout is 30min)
 
 MACHINE_ID = hashlib.sha256(
     f"{platform.node()}-{uuid.getnode()}".encode()
@@ -241,6 +245,69 @@ def scheduler_remove(task_id: str):
         taskscheduler_remove(task_id)
 
 # ---------------------------------------------------------------------------
+# Tick lock — prevents concurrent ticks on the same task
+# ---------------------------------------------------------------------------
+
+def _lock_path(task_id: str) -> Path:
+    return OL_LOCKS / f"{task_id}.lock"
+
+def _heartbeat_path(task_id: str) -> Path:
+    return OL_HEARTBEATS / f"{task_id}.json"
+
+def acquire_tick_lock(task_id: str) -> bool:
+    """Acquire a lock for this task. Returns False if another tick is running."""
+    OL_LOCKS.mkdir(parents=True, exist_ok=True)
+    lock = _lock_path(task_id)
+    if lock.exists():
+        try:
+            lock_data = json.loads(lock.read_text())
+            lock_age = time.time() - lock_data.get("started_at", 0)
+            lock_pid = lock_data.get("pid", 0)
+            # Check if the process is still alive
+            pid_alive = False
+            try:
+                os.kill(lock_pid, 0)  # signal 0 = check existence
+                pid_alive = True
+            except (OSError, ProcessLookupError):
+                pass
+            if pid_alive and lock_age < TICK_TIMEOUT_SECONDS:
+                return False  # genuinely running
+            # Stale lock — previous tick crashed or timed out
+            print(f"  Removing stale lock (age={lock_age:.0f}s, pid={lock_pid}, alive={pid_alive})")
+        except (json.JSONDecodeError, ValueError):
+            pass  # corrupted lock file, overwrite it
+    lock.write_text(json.dumps({
+        "pid": os.getpid(),
+        "started_at": time.time(),
+        "started_iso": datetime.now(timezone.utc).isoformat(),
+        "machine_id": MACHINE_ID,
+    }))
+    return True
+
+def release_tick_lock(task_id: str):
+    lock = _lock_path(task_id)
+    if lock.exists():
+        lock.unlink(missing_ok=True)
+
+def write_heartbeat(task_id: str, phase: str, detail: str = ""):
+    """Write a heartbeat file so external tools can detect hangs."""
+    OL_HEARTBEATS.mkdir(parents=True, exist_ok=True)
+    _heartbeat_path(task_id).write_text(json.dumps({
+        "task_id": task_id,
+        "pid": os.getpid(),
+        "phase": phase,
+        "detail": detail,
+        "timestamp": time.time(),
+        "timestamp_iso": datetime.now(timezone.utc).isoformat(),
+        "machine_id": MACHINE_ID,
+    }))
+
+def clear_heartbeat(task_id: str):
+    hb = _heartbeat_path(task_id)
+    if hb.exists():
+        hb.unlink(missing_ok=True)
+
+# ---------------------------------------------------------------------------
 # Tick execution — called by the OS scheduler each interval
 # ---------------------------------------------------------------------------
 
@@ -252,9 +319,15 @@ def run_tick(task_id: str):
         print(f"[{task_id}] {task['status']}, skipping tick")
         return
 
+    # Acquire lock — skip if another tick is already running
+    if not acquire_tick_lock(task_id):
+        print(f"[{task_id}] Another tick is already running, skipping")
+        return
+
     repo = task.get("repo")
     if not repo:
         print(f"[{task_id}] ERROR: task config missing 'repo' field, skipping")
+        release_tick_lock(task_id)
         return
     session_id = task.get("session_id")
     prompt = task["prompt"]
@@ -346,6 +419,7 @@ def run_tick(task_id: str):
         )
 
     # --- Fire the agent ---
+    write_heartbeat(task_id, "running", f"Starting {backend} agent")
     t0 = time.time()
     try:
         if backend == "claude":
@@ -393,9 +467,14 @@ def run_tick(task_id: str):
                 post_tick_check(task, updated_manifest, result.stdout or "")
 
     except subprocess.TimeoutExpired:
-        print(f"  TIMEOUT after 30min")
+        elapsed = time.time() - t0
+        print(f"  TIMEOUT after {elapsed:.0f}s")
+        task["last_error"] = f"Timeout after {elapsed:.0f}s"
+        task["error_count"] = task.get("error_count", 0) + 1
     except FileNotFoundError as e:
         print(f"  ERROR: {e} — is claude CLI installed?")
+        task["last_error"] = str(e)
+        task["error_count"] = task.get("error_count", 0) + 1
 
     # Link to session if first tick
     if not session_id:
@@ -412,8 +491,13 @@ def run_tick(task_id: str):
 
     # Update task metadata
     task["last_tick"] = datetime.now(timezone.utc).isoformat()
+    task["last_tick_duration_s"] = round(time.time() - t0, 1)
     task["tick_count"] = task.get("tick_count", 0) + 1
     save_task(task)
+
+    # Release lock and clear heartbeat
+    release_tick_lock(task_id)
+    clear_heartbeat(task_id)
 
 
 def build_type_instructions(task: dict, manifest: dict | None, context: str) -> str:
@@ -534,6 +618,8 @@ def cmd_install():
     OL_TASKS.mkdir(parents=True, exist_ok=True)
     OL_LOGS.mkdir(parents=True, exist_ok=True)
     OL_BIN.mkdir(parents=True, exist_ok=True)
+    OL_LOCKS.mkdir(parents=True, exist_ok=True)
+    OL_HEARTBEATS.mkdir(parents=True, exist_ok=True)
     print(f"AR Home:     {OL_HOME}")
     print(f"Tasks:       {OL_TASKS}")
     print(f"Logs:        {OL_LOGS}")
@@ -758,6 +844,93 @@ def cmd_remove(task_id: str):
     print(f"✓ {task_id} removed. OS scheduler entry and task config deleted.")
     print(f"  OmegaLoop/ data in the repo is preserved.")
 
+def cmd_status(task_id: Optional[str] = None):
+    """Show detailed status for one or all tasks, including lock/heartbeat state."""
+    tasks = list_tasks()
+    if not tasks:
+        print("No research loops registered.")
+        return
+
+    if task_id:
+        tasks = [t for t in tasks if t["id"] == task_id]
+        if not tasks:
+            print(f"Task {task_id} not found.")
+            return
+
+    for t in tasks:
+        tid = t["id"]
+        print(f"\n{'='*60}")
+        print(f"Task: {tid}")
+        print(f"  Repo:      {t.get('repo', '?')}")
+        print(f"  Prompt:    {t.get('prompt', '?')[:70]}")
+        print(f"  Type:      {t.get('loop_type', '?')}")
+        print(f"  Status:    {t.get('status', '?')}")
+        print(f"  Backend:   {t.get('backend', '?')}")
+        print(f"  Ticks:     {t.get('tick_count', 0)}")
+        print(f"  Last tick: {t.get('last_tick', 'never')}")
+        if t.get("last_tick_duration_s"):
+            print(f"  Duration:  {t['last_tick_duration_s']}s")
+        if t.get("last_error"):
+            print(f"  Last err:  {t['last_error']}")
+        if t.get("error_count"):
+            print(f"  Errors:    {t['error_count']}")
+        if t.get("session_id"):
+            print(f"  Session:   {t['session_id']}")
+
+        # Check lock state
+        lock = _lock_path(tid)
+        if lock.exists():
+            try:
+                ld = json.loads(lock.read_text())
+                age = time.time() - ld.get("started_at", 0)
+                pid = ld.get("pid", 0)
+                alive = False
+                try:
+                    os.kill(pid, 0)
+                    alive = True
+                except (OSError, ProcessLookupError):
+                    pass
+                state = "RUNNING" if alive else "STALE"
+                print(f"  Lock:      {state} (pid={pid}, age={age:.0f}s)")
+            except (json.JSONDecodeError, ValueError):
+                print(f"  Lock:      CORRUPTED")
+        else:
+            print(f"  Lock:      none")
+
+        # Check heartbeat
+        hb = _heartbeat_path(tid)
+        if hb.exists():
+            try:
+                hd = json.loads(hb.read_text())
+                age = time.time() - hd.get("timestamp", 0)
+                print(f"  Heartbeat: {hd.get('phase', '?')} ({age:.0f}s ago) {hd.get('detail', '')}")
+            except (json.JSONDecodeError, ValueError):
+                print(f"  Heartbeat: CORRUPTED")
+
+        # Read manifest for experiment/win stats
+        session_id = t.get("session_id")
+        repo = t.get("repo")
+        if session_id and repo:
+            manifest_path = Path(repo) / "OmegaLoop" / session_id / "manifest.json"
+            if manifest_path.exists():
+                try:
+                    m = json.loads(manifest_path.read_text())
+                    print(f"  Exps:      {m.get('experiment_count', 0)}")
+                    print(f"  Wins:      {m.get('win_count', 0)}")
+                    print(f"  Strategy:  {m.get('current_strategy', '?')}")
+                    streak = m.get('consecutive_no_wins', 0)
+                    if streak > 0:
+                        print(f"  No-win:    {streak} consecutive")
+                    if m.get("insights"):
+                        print(f"  Insights:  {len(m['insights'])}")
+                except (json.JSONDecodeError, ValueError):
+                    print(f"  Manifest:  CORRUPTED")
+
+    print(f"\n{'='*60}")
+    print(f"Machine: {MACHINE_ID} ({platform.node()})")
+    print(f"Platform: {get_platform()}")
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -811,6 +984,10 @@ def main():
     p_remove = sub.add_parser("remove", help="Remove a research loop entirely")
     p_remove.add_argument("task_id")
 
+    # status
+    p_status = sub.add_parser("status", help="Detailed status with lock/heartbeat/manifest info")
+    p_status.add_argument("task_id", nargs="?", help="Task ID (all tasks if omitted)")
+
     # run-tick (internal — called by OS scheduler)
     p_tick = sub.add_parser("run-tick", help=argparse.SUPPRESS)
     p_tick.add_argument("task_id")
@@ -831,6 +1008,8 @@ def main():
         cmd_resume(args.task_id, getattr(args, "all", False))
     elif args.command == "remove":
         cmd_remove(args.task_id)
+    elif args.command == "status":
+        cmd_status(getattr(args, "task_id", None))
     elif args.command == "run-tick":
         run_tick(args.task_id)
     else:

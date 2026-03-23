@@ -638,15 +638,19 @@ class AgentFrameworkBackend:
             f"Worktree: {context['worktree_path']}\n"
             "Propose and evaluate one experiment. Return JSON only."
         )
-        result = await self._agent.run(prompt)
-        text = str(result).strip()
-        # Parse JSON from response (strip markdown fences if present)
-        text = text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        try:
+            result = await asyncio.wait_for(self._agent.run(prompt), timeout=600)
+        except asyncio.TimeoutError:
+            return {"hypothesis": "(agent timeout after 600s)", "changes": [],
+                    "result": "error", "metrics": {}, "reasoning": "Agent call timed out",
+                    "diff_summary": ""}
+        return _safe_parse_agent_json(str(result))
 
 
 class ClaudeCliBackend:
     """Uses `claude` CLI (Claude Code) as the experiment agent."""
+
+    TIMEOUT = 900  # 15 minutes max per experiment
 
     def __init__(self, manifest: Manifest):
         self.manifest = manifest
@@ -667,14 +671,21 @@ class ClaudeCliBackend:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await proc.communicate()
-        text = stdout.decode().strip()
-        text = text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=self.TIMEOUT)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return {"hypothesis": f"(claude CLI timeout after {self.TIMEOUT}s)", "changes": [],
+                    "result": "error", "metrics": {}, "reasoning": "Process timed out",
+                    "diff_summary": ""}
+        return _safe_parse_agent_json(stdout.decode())
 
 
 class CopilotCliBackend:
     """Uses GitHub Copilot CLI as the experiment agent."""
+
+    TIMEOUT = 900  # 15 minutes max per experiment
 
     def __init__(self, manifest: Manifest):
         self.manifest = manifest
@@ -692,14 +703,43 @@ class CopilotCliBackend:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await proc.communicate()
-        text = stdout.decode().strip()
-        return json.loads(text)
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=self.TIMEOUT)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return {"hypothesis": f"(copilot CLI timeout after {self.TIMEOUT}s)", "changes": [],
+                    "result": "error", "metrics": {}, "reasoning": "Process timed out",
+                    "diff_summary": ""}
+        return _safe_parse_agent_json(stdout.decode())
 
 
 # ---------------------------------------------------------------------------
 # Agent factory — select backend based on env/config
 # ---------------------------------------------------------------------------
+
+def _safe_parse_agent_json(text: str) -> dict:
+    """Parse JSON from agent output, handling markdown fences and partial output."""
+    text = text.strip()
+    text = text.replace("```json", "").replace("```", "").strip()
+    # Try to find a JSON object in the output
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(text[start:end])
+        except json.JSONDecodeError:
+            pass
+    # Last resort: return error result
+    return {
+        "hypothesis": "(agent returned non-JSON output)",
+        "changes": [],
+        "result": "error",
+        "metrics": {},
+        "reasoning": f"Raw output: {text[:500]}",
+        "diff_summary": "",
+    }
+
 
 BACKENDS = {
     "agent-framework": AgentFrameworkBackend,
