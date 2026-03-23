@@ -1,8 +1,9 @@
 {
   "win_id": "win-001",
   "title": "Python Testing Frameworks Comparison",
-  "description": "Research comparison of pytest, unittest, and nose2 with strengths, weaknesses, and recommendation matrix",
+  "description": "Research comparison of pytest, unittest, and nose2 with strengths, weaknesses, comparison table, and recommendation matrix",
   "created": "2026-03-23T02:48:57Z",
+  "updated": "2026-03-23T02:51:37Z",
   "type": "research",
   "status": "complete",
   "artifacts": [
@@ -21,24 +22,43 @@
   "frameworks_compared": [
     {
       "name": "pytest",
+      "version": "9.0.2",
+      "github_stars": 13700,
+      "pypi_downloads_monthly": "~524M",
+      "plugins": "1,300+",
+      "license": "MIT",
       "verdict": "Best for new projects and modern CI/CD",
       "strengths_count": 3,
       "weaknesses_count": 3
     },
     {
       "name": "unittest",
+      "version": "stdlib (CPython)",
+      "github_stars": null,
+      "pypi_downloads_monthly": null,
+      "license": "PSF",
       "verdict": "Best for zero-dependency and regulated environments",
       "strengths_count": 3,
       "weaknesses_count": 3
     },
     {
       "name": "nose2",
+      "version": "0.16.0",
+      "github_stars": 822,
+      "pypi_downloads_monthly": "~880K",
+      "plugins": "15+ built-in",
+      "license": "BSD-2-Clause",
       "verdict": "Best for migrating legacy nose test suites",
       "strengths_count": 3,
       "weaknesses_count": 3
     }
   ],
   "sources": [
+    "https://github.com/pytest-dev/pytest",
+    "https://github.com/nose-devs/nose2",
+    "https://docs.python.org/3/library/unittest.html",
+    "https://pypi.org/project/pytest/",
+    "https://pypi.org/project/nose2/",
     "https://articles.mergify.com/pytest-vs-unittest/",
     "https://quashbugs.com/blog/pytest-vs-unittest",
     "https://www.softwaretestinghelp.com/python-testing-frameworks/",
