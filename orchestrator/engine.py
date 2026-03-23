@@ -689,7 +689,7 @@ class ClaudeCliBackend:
 
 
 class CopilotCliBackend:
-    """Uses GitHub Copilot CLI as the experiment agent."""
+    """Uses GitHub Copilot CLI (standalone `copilot` binary) as the experiment agent."""
 
     TIMEOUT = 900  # 15 minutes max per experiment
 
@@ -703,12 +703,17 @@ class CopilotCliBackend:
             f"Strategy: {context['strategy']}. "
             f"Make one change, evaluate, return JSON."
         )
+        copilot_bin = shutil.which("copilot") or "copilot"
         proc = await asyncio.create_subprocess_exec(
-            "gh", "copilot", "suggest", "-t", "shell", prompt,
+            copilot_bin, "-p",
+            "--output-format", "text",
             cwd=context["worktree_path"],
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        proc.stdin.write(prompt.encode())
+        proc.stdin.close()
         try:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=self.TIMEOUT)
         except asyncio.TimeoutError:

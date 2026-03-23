@@ -443,32 +443,35 @@ def run_tick(task_id: str):
 
     t0 = time.time()
     try:
-        if backend == "claude":
-            # Resolve full path to claude CLI (Windows needs .cmd extension resolved)
-            claude_bin = shutil.which("claude")
-            if not claude_bin:
-                raise FileNotFoundError("claude CLI not found on PATH")
-            # Pass prompt via stdin, capture output to file for reliability
+        if backend in ("claude", "copilot"):
+            # Resolve CLI binary (Windows needs .cmd extension resolved)
+            cli_name = "claude" if backend == "claude" else "copilot"
+            cli_bin = shutil.which(cli_name)
+            if not cli_bin:
+                raise FileNotFoundError(f"{cli_name} CLI not found on PATH")
+
+            cli_args = [cli_bin, "-p"]
+            if backend == "claude":
+                cli_args += ["--dangerously-skip-permissions"]
+            cli_args += ["--output-format", "text"]
+
+            # Pass prompt via stdin, capture output to files for reliability
             stdout_file = OL_LOGS / f"{task_id}.stdout.txt"
             stderr_file = OL_LOGS / f"{task_id}.stderr.txt"
             with open(stdout_file, "w", encoding="utf-8") as fout, \
                  open(stderr_file, "w", encoding="utf-8") as ferr:
                 result = subprocess.run(
-                    [
-                        claude_bin, "-p",
-                        "--dangerously-skip-permissions",
-                        "--output-format", "text",
-                    ],
+                    cli_args,
                     input=claude_prompt,
                     cwd=repo,
                     stdout=fout, stderr=ferr,
                     text=True,
                     timeout=1800,  # 30 min max per tick
                 )
-            # Read back output from files (safer than in-memory streams)
+            # Read back output from files
             result.stdout = stdout_file.read_text(encoding="utf-8") if stdout_file.exists() else ""
             result.stderr = stderr_file.read_text(encoding="utf-8") if stderr_file.exists() else ""
-        else:
+        elif backend == "agent-framework":
             result = subprocess.run(
                 [
                     get_python(), "-m", "orchestrator.engine",
